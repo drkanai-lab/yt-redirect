@@ -3,118 +3,59 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>1Writer リダイレクト（テスト）</title>
+<title>1Writer リダイレクト</title>
 <style>
   body { font-family: -apple-system, BlinkMacSystemFont, "Helvetica Neue", sans-serif;
-         max-width: 560px; margin: 24px auto; padding: 0 16px; color: #222; line-height: 1.5; }
-  h1 { font-size: 17px; margin: 8px 0; }
-  h2 { font-size: 14px; color: #555; margin: 22px 0 6px; border-bottom: 1px solid #ddd; padding-bottom: 4px; }
+         max-width: 480px; margin: 40px auto; padding: 0 20px; color: #333; line-height: 1.6; }
+  h1 { font-size: 18px; }
   .path { background: #f5f5f5; padding: 8px 12px; border-radius: 6px;
-          word-break: break-all; font-size: 12px; color: #444; margin: 4px 0; }
-  .btn { display: block; margin: 8px 0; padding: 12px 14px;
+          word-break: break-all; font-size: 13px; color: #555; }
+  .btn { display: block; margin: 12px 0; padding: 14px 18px;
          background: #3D5AA0; color: #fff; text-decoration: none;
-         border-radius: 8px; font-weight: bold; font-size: 14px; }
-  .btn .sub { display: block; font-weight: normal; font-size: 11px; opacity: 0.85; margin-top: 2px; }
-  .btn.alt { background: #5A7FCC; }
-  .btn.alt2 { background: #6E8FCF; }
-  .btn.alt3 { background: #7E9DD3; }
+         border-radius: 8px; text-align: center; font-weight: bold; }
   .btn.dropbox { background: #0061FF; }
   .err { color: #c62828; }
-  .hint { font-size: 12px; color: #777; margin: 16px 0; }
-  .ok { color: #2e7d32; font-size: 12px; }
 </style>
 </head>
 <body>
-<h1 id="msg">1Writer 起動テスト</h1>
-<p class="hint">どのボタンが効くか順に試してください。<br>
-動いたパターンを教えてもらえれば、本番設定をそれに合わせます。</p>
-
-<h2>📍 試行中のパス</h2>
+<h1 id="msg">1Writer を起動中…</h1>
 <p class="path" id="pathView"></p>
-
-<h2>🅰 root=dropbox（Dropboxルート起点）</h2>
-<a class="btn" id="ow_a1" href="#">A1: スラッシュ無し<span class="sub" id="ow_a1_sub"></span></a>
-<a class="btn alt" id="ow_a2" href="#">A2: スラッシュ付<span class="sub" id="ow_a2_sub"></span></a>
-
-<h2>🅱 root=dropbox（ビジネス書類起点）</h2>
-<p class="hint" style="margin-top:0">「ビジネス書類」を Dropbox ルートとして連携している場合用。</p>
-<a class="btn alt2" id="ow_b1" href="#">B1: ビジネス書類を除いたパス<span class="sub" id="ow_b1_sub"></span></a>
-<a class="btn alt3" id="ow_b2" href="#">B2: B1 + 先頭スラッシュ<span class="sub" id="ow_b2_sub"></span></a>
-
-<h2>🆎 NFD 正規化（macOS 形式）</h2>
-<a class="btn alt" id="ow_c1" href="#">C1: NFD + スラッシュ無し</a>
-<a class="btn alt2" id="ow_c2" href="#">C2: NFD ビジネス書類除く</a>
-
-<h2>☁️ フォールバック</h2>
-<a class="btn dropbox" id="db_btn" href="#" target="_blank">Dropbox Web で開く</a>
-
-<p class="hint" style="margin-top:24px;">
-  現在の自動起動: <strong>A1</strong>（標準想定）<br>
-  どれが効いたかメモして教えてください。
-</p>
+<a class="btn" id="ow_btn" href="#">📖 1Writer で開く（再試行）</a>
+<a class="btn dropbox" id="db_btn" href="#" target="_blank">☁️ Dropbox で開く</a>
 
 <script>
 (function () {
   const params = new URLSearchParams(location.search);
-  let path = params.get('path') || '';
-  const root = params.get('root') || 'dropbox';
+  // 仕様: path は "Dropbox/..." 形式（先頭にストレージソース名を含む）
+  // 先頭の余分なスラッシュは除去
+  let path = (params.get('path') || '').replace(/^\/+/, '');
+
+  const msg = document.getElementById('msg');
+  const pathView = document.getElementById('pathView');
+  const owBtn = document.getElementById('ow_btn');
+  const dbBtn = document.getElementById('db_btn');
 
   if (!path) {
-    document.getElementById('msg').textContent = 'エラー: path パラメータが指定されていません';
-    document.getElementById('msg').className = 'err';
+    msg.textContent = 'エラー: path パラメータが指定されていません';
+    msg.className = 'err';
     return;
   }
 
-  // 共通整形
-  const noSlash = path.replace(/^\/+/, '');
-  const withSlash = '/' + noSlash;
+  pathView.textContent = path;
 
-  // 「ビジネス書類/」を除いたパス
-  const stripBiz = (s) => s.replace(/^\/?ビジネス書類\//, '');
-  const noBiz_noSlash = stripBiz(noSlash);
-  const noBiz_withSlash = '/' + noBiz_noSlash;
+  // 1Writer 公式仕様: onewriter://x-callback-url/open?path=Dropbox/...
+  const owUrl = 'onewriter://x-callback-url/open?path=' + encodeURIComponent(path);
 
-  document.getElementById('pathView').innerHTML =
-    '<strong>受信:</strong> ' + path +
-    '<br><strong>整形 NFC（スラ無）:</strong> ' + noSlash +
-    '<br><strong>ビジネス書類除外:</strong> ' + noBiz_noSlash;
-
-  // NFD 版
-  const noSlash_nfd = noSlash.normalize('NFD');
-  const noBiz_nfd = noBiz_noSlash.normalize('NFD');
-
-  function ow(p) {
-    return 'onewriter://x-callback-url/open?path=' +
-           encodeURIComponent(p) + '&root=' + encodeURIComponent(root);
-  }
-
-  // A: dropbox root 起点
-  const a1 = ow(noSlash);
-  const a2 = ow(withSlash);
-  // B: ビジネス書類起点
-  const b1 = ow(noBiz_noSlash);
-  const b2 = ow(noBiz_withSlash);
-  // C: NFD
-  const c1 = ow(noSlash_nfd);
-  const c2 = ow(noBiz_nfd);
-
-  document.getElementById('ow_a1').href = a1;
-  document.getElementById('ow_a1_sub').textContent = noSlash;
-  document.getElementById('ow_a2').href = a2;
-  document.getElementById('ow_a2_sub').textContent = withSlash;
-  document.getElementById('ow_b1').href = b1;
-  document.getElementById('ow_b1_sub').textContent = noBiz_noSlash;
-  document.getElementById('ow_b2').href = b2;
-  document.getElementById('ow_b2_sub').textContent = noBiz_withSlash;
-  document.getElementById('ow_c1').href = c1;
-  document.getElementById('ow_c2').href = c2;
-
-  // Dropbox Web
+  // Dropbox Web URL: 先頭の "Dropbox/" は不要。ビジネス書類以降のパスを使う。
+  const dbPath = path.replace(/^Dropbox\//, '/');
   const dbUrl = 'https://www.dropbox.com/home' +
-        withSlash.split('/').map(encodeURIComponent).join('/');
-  document.getElementById('db_btn').href = dbUrl;
+                dbPath.split('/').map(encodeURIComponent).join('/');
 
-  // 自動起動はオフ（ボタンを順に試してもらう）
+  owBtn.href = owUrl;
+  dbBtn.href = dbUrl;
+
+  // 即座に1Writerを起動
+  setTimeout(function () { window.location.href = owUrl; }, 50);
 })();
 </script>
 </body>
